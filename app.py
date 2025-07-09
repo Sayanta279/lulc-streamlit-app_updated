@@ -8,14 +8,14 @@ import matplotlib.pyplot as plt
 from utils.predictor import predict_tiff, classify_prediction, show_images
 from tempfile import NamedTemporaryFile
 import gdown
-from pydrive.auth import GoogleAuth
-from pydrive.drive import GoogleDrive
+import json
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaFileUpload
 
-# App Title
 st.set_page_config(layout="wide")
-st.title("🌍 Land Use Land Cover (LULC) Prediction for Target Year")
+st.title("🌍 LULC Prediction for Target Year with Google Drive API")
 
-# Load Model from Google Drive
 @st.cache_resource
 def load_model():
     model_path = "model/model.h5"
@@ -28,16 +28,17 @@ def load_model():
 model = load_model()
 st.success("✅ Model Loaded Successfully")
 
-# Authenticate Google Drive
 @st.cache_resource
-def authenticate_drive():
-    gauth = GoogleAuth()
-    gauth.LocalWebserverAuth()
-    return GoogleDrive(gauth)
+def init_drive_service():
+    service_account_info = json.loads(st.secrets["GOOGLE_SERVICE_ACCOUNT"])
+    creds = service_account.Credentials.from_service_account_info(
+        service_account_info,
+        scopes=['https://www.googleapis.com/auth/drive.file']
+    )
+    return build('drive', 'v3', credentials=creds)
 
-drive = authenticate_drive()
+drive_service = init_drive_service()
 
-# File uploader and year selector
 uploaded_files = st.file_uploader("📂 Upload at least 2 Binary LULC GeoTIFFs", type=["tif", "tiff"], accept_multiple_files=True)
 target_year = st.number_input("📅 Enter the year you want to predict", min_value=1900, max_value=2100, step=1)
 
@@ -47,7 +48,13 @@ def extract_year(filename):
     except:
         return 0
 
-if uploaded_files and len(uploaded_files) >= 2 and target_year:
+def upload_to_drive(file_path, filename):
+    file_metadata = {'name': filename}
+    media = MediaFileUpload(file_path, mimetype='application/octet-stream')
+    uploaded_file = drive_service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+    return f"https://drive.google.com/uc?id={uploaded_file['id']}&export=download"
+
+if uploaded_files and len(uploaded_files) >= 2:
     st.info("⏳ Processing files and predicting for year " + str(target_year))
 
     uploaded_files.sort(key=lambda f: abs(extract_year(f) - target_year))
@@ -57,7 +64,6 @@ if uploaded_files and len(uploaded_files) >= 2 and target_year:
     predicted_images = []
     classified_images = []
 
-    # Use only one output for the target year
     with NamedTemporaryFile(delete=False, suffix=".tif") as temp_input:
         temp_input.write(selected_files[0].read())
         input_path = temp_input.name
@@ -75,12 +81,7 @@ if uploaded_files and len(uploaded_files) >= 2 and target_year:
     st.success("✅ Prediction and Classification Completed")
     show_images(input_images, predicted_images, classified_images)
 
-    # Upload to Google Drive and generate download link
-    gfile = drive.CreateFile({'title': f"predicted_{target_year}.tif"})
-    gfile.SetContentFile(predicted_path)
-    gfile.Upload()
-    download_url = f"https://drive.google.com/uc?id={gfile['id']}&export=download"
-
+    download_url = upload_to_drive(predicted_path, f"predicted_{target_year}.tif")
     st.markdown(f"📥 [Download Predicted TIFF for {target_year}]({download_url})")
 else:
     st.warning("⚠️ Please upload at least two TIFF files and select a target year.")
