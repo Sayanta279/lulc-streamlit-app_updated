@@ -12,7 +12,7 @@ import gdown
 
 # App Title
 st.set_page_config(layout="wide")
-st.title("🌍 Land Use Land Cover (LULC) Classification with Deep Learning")
+st.title("🌆 Future Prediction: Urban Expansion")
 
 # Load Model from Google Drive
 @st.cache_resource
@@ -48,7 +48,7 @@ if uploaded_files and len(uploaded_files) >= 2 and target_year:
         # Apply binary classification: 1 = Built-up, 0 = Non Built-up
         binary_predicted = (predicted >= 0.5).astype(np.uint8)
 
-        st.subheader(f"🗓️ Predicted Built-up/Non Built-up Areas for {target_year} ({uploaded_file.name})")
+        st.subheader(f"🗓️ Predicted Built-up/Non Built-up Areas for {target_year}")
         st.image(binary_predicted * 255, caption="White = Built-up (1), Black = Non Built-up (0)", use_container_width=True)
 
         with open(output_tmp_path, "rb") as f:
