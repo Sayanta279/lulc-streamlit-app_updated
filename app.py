@@ -36,7 +36,7 @@ target_year = st.number_input("📅 Enter the Target Year for Prediction", min_v
 if uploaded_files and len(uploaded_files) >= 2 and target_year:
     st.info(f"🛠️ Running prediction for the year {target_year}...")
 
-    for uploaded_file in uploaded_files:
+    for i, uploaded_file in enumerate(uploaded_files):
         with NamedTemporaryFile(delete=False, suffix=".tif") as input_tmp:
             input_tmp.write(uploaded_file.read())
             input_tmp_path = input_tmp.name
@@ -48,13 +48,14 @@ if uploaded_files and len(uploaded_files) >= 2 and target_year:
         # Apply binary classification: 1 = Built-up, 0 = Non Built-up
         binary_predicted = (predicted >= 0.5).astype(np.uint8)
 
-        st.subheader(f"🗓️ Predicted Built-up/Non Built-up Areas for {target_year}")
-        st.image(binary_predicted * 255, caption="White = Built-up (1), Black = Non Built-up (0)", use_column_width=True)
+        st.subheader(f"🗓️ Predicted Built-up/Non Built-up Areas for {target_year} ({uploaded_file.name})")
+        st.image(binary_predicted * 255, caption="White = Built-up (1), Black = Non Built-up (0)", use_container_width=True)
 
         with open(output_tmp_path, "rb") as f:
             st.download_button(
                 label="📥 Download Predicted TIFF",
                 data=f,
-                file_name=f"prediction_{target_year}.tif",
-                mime="image/tiff"
+                file_name=f"prediction_{target_year}_{i}.tif",
+                mime="image/tiff",
+                key=f"download_{i}"
             )
